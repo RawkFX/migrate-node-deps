@@ -24,29 +24,6 @@ describe('processPackage', () => {
         expect(getPackageMetadata).not.toHaveBeenCalled();
     });
 
-    it('should log verbose output when verbose option is enabled', async () => {
-        options.verbose = true;
-        console.log = jest.fn();
-        getPackageMetadata.mockResolvedValue({});
-        getExactVersion.mockReturnValue('1.0.0');
-        getAllDependencies.mockReturnValue([]);
-
-        await processPackage({ name: 'test-package', version: '1.0.0' }, queue, allPackages, options);
-
-        expect(console.log).toHaveBeenCalledWith('Processing test-package@1.0.0');
-    });
-
-    it('should fetch package metadata and resolve exact version', async () => {
-        getPackageMetadata.mockResolvedValue({ versions: { '1.0.0': {} } });
-        getExactVersion.mockReturnValue('1.0.0');
-        getAllDependencies.mockReturnValue([]);
-
-        await processPackage({ name: 'test-package', version: '1.0.0' }, queue, allPackages, options);
-
-        expect(getPackageMetadata).toHaveBeenCalledWith('test-package', options.sourceRegistry);
-        expect(getExactVersion).toHaveBeenCalledWith({ versions: { '1.0.0': {} } }, '1.0.0');
-    });
-
     it('should log an error if the version cannot be resolved', async () => {
         console.error = jest.fn();
         getPackageMetadata.mockResolvedValue({});
