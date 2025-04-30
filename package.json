@@ -1,0 +1,42 @@
+{
+  "name": "migrate-node-deps",
+  "version": "0.0.1",
+  "description": "`migrate-node-deps` is a CLI tool that clones npm dependencies and their transitive dependencies to a local private registry (like Verdaccio).",
+  "keywords": [
+    "private",
+    "repository",
+    "migrate",
+    "npm",
+    "dependencies",
+    "dependencies",
+    "npm",
+    "npmjs",
+    "repository"
+  ],
+  "homepage": "https://github.com/RawkFX/migrate-node-deps#readme",
+  "bugs": {
+    "url": "https://github.com/RawkFX/migrate-node-deps/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RawkFX/migrate-node-deps.git"
+  },
+  "bin": {
+    "migrate-node-deps": "./bin/index.js"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "license": "MIT",
+  "author": "Răzvan",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0"
+  }
+}
