@@ -134,9 +134,10 @@ async function main() {
             let skippedCount = 0;
             let failedCount = 0;
 
-            // Process packages in batches
+            // Process packages in batches with better error handling
             while (packageQueue.length > 0) {
                 const batch = packageQueue.splice(0, config.concurrentLimit);
+                
                 const batchPromises = batch.map(pkg => 
                     processPackage(pkg, packageQueue, allPackages, {
                         sourceRegistry: config.sourceRegistry,
@@ -148,42 +149,61 @@ async function main() {
                     })
                 );
 
-                await Promise.all(batchPromises);
+                // Wait for all batch promises to complete, handling any errors
+                await Promise.all(batchPromises.map(p => p.catch(err => {
+                    console.error(`Error in batch processing: ${err.message}`);
+                    // Don't rethrow - we want to continue with other packages
+                })));
 
                 console.log(`Progress: ${allPackages.size - packageQueue.length}/${allPackages.size} packages processed`);
             }
 
             console.log(`Discovered ${allPackages.size} total packages (including transitive dependencies)`);
 
-            // Process each package for publishing
+            // Process each package for publishing with improved error handling
             const sortedPackages = Array.from(allPackages);
             console.log('Publishing packages to private registry...');
 
-            for (let i = 0; i < sortedPackages.length; i++) {
-                const packageSpec = sortedPackages[i];
-
-                if (i % 10 === 0 || i === sortedPackages.length - 1) {
-                    console.log(`Publishing progress: ${i + 1}/${sortedPackages.length}`);
-                }
-
-                try {
-                    const result = await publishToVerdaccio(packageSpec, {
+            // Process in smaller batches for publishing to avoid overwhelming the network
+            const publishBatchSize = Math.min(5, config.concurrentLimit);
+            for (let i = 0; i < sortedPackages.length; i += publishBatchSize) {
+                const currentBatch = sortedPackages.slice(i, i + publishBatchSize);
+                const publishPromises = currentBatch.map(packageSpec => 
+                    publishToVerdaccio(packageSpec, {
                         verdaccioRegistry: config.verdaccioRegistry,
                         sourceRegistry: config.sourceRegistry,
                         skipExisting: config.skipExisting,
-                        verbose: config.verbose
-                    });
-
-                    if (result === 'published') {
-                        publishedCount++;
-                    } else if (result === 'skipped') {
-                        skippedCount++;
-                    } else {
+                        verbose: config.verbose,
+                        maxRetries: 3
+                    })
+                    .then(result => {
+                        if (result === 'published') {
+                            publishedCount++;
+                        } else if (result === 'skipped') {
+                            skippedCount++;
+                        } else {
+                            failedCount++;
+                        }
+                        return result;
+                    })
+                    .catch(error => {
+                        console.error(`Failed to publish ${packageSpec}: ${error.message}`);
                         failedCount++;
-                    }
-                } catch (error) {
-                    console.error(`Failed to publish ${packageSpec}: ${error.message}`);
-                    failedCount++;
+                        return 'failed';
+                    })
+                );
+
+                // Wait for all publish operations to complete
+                await Promise.all(publishPromises);
+
+                // Show progress every few packages
+                if (i % 20 === 0 || i + publishBatchSize >= sortedPackages.length) {
+                    console.log(`Publishing progress: ${Math.min(i + publishBatchSize, sortedPackages.length)}/${sortedPackages.length}`);
+                }
+                
+                // Small delay between batches to prevent overwhelming the server
+                if (i + publishBatchSize < sortedPackages.length) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
                 }
             }
 

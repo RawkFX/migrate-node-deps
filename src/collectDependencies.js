@@ -1,4 +1,11 @@
-// Helper function to collect dependencies from package.json
+
+/**
+ * Helper function to collect dependencies from package.json
+ * 
+ * @param {Object} packageJson Package.json contents
+ * @param {Object} options Configuration options
+ * @returns {Array} Array of dependencies
+ */
 function collectDependencies(packageJson, options) {
     const { includeDevDeps, includePeerDeps, includeOptionalDeps, scope } = options;
     const dependencies = [];
@@ -36,6 +43,4 @@ function collectDependencies(packageJson, options) {
     return dependencies;
 }
 
-module.exports = {
-    collectDependencies
-};
+module.exports = { collectDependencies };

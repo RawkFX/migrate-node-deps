@@ -1,8 +1,23 @@
-const { getPackageMetadata, getExactVersion, getAllDependencies } = require('./helpers');
+const { getPackageMetadata, getExactVersion, getAllDependencies, log } = require('./helpers');
 
-// Process a single package
+/**
+ * Process a single package and its dependencies
+ * 
+ * @param {Object} pkg Package object with name and version
+ * @param {Array} queue Queue to add new dependencies to
+ * @param {Set} allPackages Set of all packages being processed
+ * @param {Object} options Configuration options
+ * @returns {Promise<void>}
+ */
 async function processPackage(pkg, queue, allPackages, options) {
-    const { verbose, sourceRegistry, processedPackages } = options;
+    const { 
+        sourceRegistry, 
+        includePeerDeps, 
+        includeOptionalDeps, 
+        processedPackages, 
+        verbose 
+    } = options;
+    
     const pkgKey = `${pkg.name}@${pkg.version}`;
 
     // Skip if already processed
@@ -14,10 +29,13 @@ async function processPackage(pkg, queue, allPackages, options) {
     processedPackages.add(pkgKey);
 
     try {
-        if (verbose) console.log(`Processing ${pkgKey}`);
+        log(`Processing ${pkgKey}`, verbose);
 
-        // Get package metadata from source registry
-        const metadata = await getPackageMetadata(pkg.name, sourceRegistry);
+        // Get package metadata from source registry with retries
+        const metadata = await getPackageMetadata(pkg.name, sourceRegistry, {
+            retries: 3,
+            timeout: 10000
+        });
 
         // Get exact version
         const exactVersion = getExactVersion(metadata, pkg.version);
@@ -30,8 +48,8 @@ async function processPackage(pkg, queue, allPackages, options) {
 
         // Get all dependencies for this package
         const allDeps = getAllDependencies(metadata, exactVersion, {
-            includePeerDeps: options.includePeerDeps,
-            includeOptionalDeps: options.includeOptionalDeps
+            includePeerDeps,
+            includeOptionalDeps
         });
 
         // Add new dependencies to queue and tracking
@@ -45,9 +63,8 @@ async function processPackage(pkg, queue, allPackages, options) {
         }
     } catch (error) {
         console.error(`Error processing ${pkgKey}: ${error.message}`);
+        // Don't propagate the error - we want to continue with other packages
     }
 }
 
-module.exports = {
-    processPackage
-};
+module.exports = { processPackage };
