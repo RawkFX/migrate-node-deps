@@ -108,7 +108,7 @@ async function publishToVerdaccio(packageSpec, options) {
                 log(`Using tag: ${tag} for package ${packageSpec}`, verbose);
 
                 // Using --access=public to ensure scoped packages publish correctly
-                execSync(`npm publish ${tarballFile} --registry ${verdaccioRegistry} --access=public --tag ${tag}`, {
+                execSync(`npm publish ${tarballFile} --registry ${verdaccioRegistry} --access=public --tag ${tag} --provenance=false`, {
                     stdio: 'pipe',  // Capture output instead of inheriting
                     timeout: 30000  // 30 seconds timeout
                 });
