@@ -102,6 +102,12 @@ npx migrate-node-deps --verbose
 npx migrate-node-deps --requireLogin --username admin --password secret
 ```
 
+** My current setup:**
+
+```bash
+npx migrate-node-deps --requireLogin --username admin --password secret --verbose --concurrent 50
+```
+
 ## How It Works
 
 1. Reads the specified `package.json` file
