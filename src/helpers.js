@@ -127,15 +127,42 @@ async function authenticateVerdaccio(registry, options = {}) {
     }
 }
 */
-// Helper function for authentication
+/**
+ * Authenticate with a Verdaccio registry
+ * @param {string} registry - The URL of the registry
+ * @param {Object} options - Authentication options
+ * @param {string} options.username - Username for authentication
+ * @param {string} options.password - Password for authentication
+ * @param {string} options.email - Email for authentication
+ * @param {boolean} options.verbose - Enable verbose logging
+ * @returns {Promise<boolean>} - Whether authentication was successful
+ */
 async function authenticateVerdaccio(registry, options = {}) {
     const { username, password, email, verbose } = options;
+    const { execSync } = require('child_process');
+    const fs = require('fs');
+    const path = require('path');
 
-    execSync(`npm config set registry ${registry}`, { stdio: 'ignore' });
+    // Helper function for logging
+    const log = (message, shouldLog) => {
+        if (shouldLog) {
+            console.log(message);
+        }
+    };
+
+    // Make sure registry URL doesn't have trailing slash
+    const normalizedRegistry = registry.replace(/\/+$/, '');
+
+    log(`Setting npm registry to ${normalizedRegistry}`, verbose);
+    execSync(`npm config set registry ${normalizedRegistry}`, { stdio: 'ignore' });
 
     try {
         // Check if already logged in
-        const whoamiOutput = execSync('npm whoami', { stdio: ['ignore', 'pipe', 'ignore'], encoding: 'utf8' }).trim();
+        const whoamiOutput = execSync('npm whoami', {
+            stdio: ['ignore', 'pipe', 'ignore'],
+            encoding: 'utf8'
+        }).trim();
+
         log(`Already authenticated as ${whoamiOutput}`, verbose);
         return true;
     } catch (error) {
@@ -143,18 +170,51 @@ async function authenticateVerdaccio(registry, options = {}) {
 
         if (username && password) {
             try {
-                // Manually generate an authentication token
-                const authToken = Buffer.from(`${username}:${password}`).toString('base64');
-                const npmrcPath = `${process.env.HOME || process.env.USERPROFILE}/.npmrc`;
+                // Get the registry hostname (without protocol)
+                const registryHost = normalizedRegistry.replace(/^https?:\/\//, '');
+                const npmrcPath = path.join(process.env.HOME || process.env.USERPROFILE, '.npmrc');
 
-                // Write the token to .npmrc
-                fs.appendFileSync(
-                    npmrcPath,
-                    `\n//${registry.replace(/^https?:\/\//, '')}/:_authToken=${authToken}\n`
-                );
+                // Create the proper _auth entry for .npmrc
+                const authString = `${username}:${password}`;
+                const authToken = Buffer.from(authString).toString('base64');
 
-                log(`Successfully authenticated to registry as ${username}`, verbose);
-                return true;
+                // Read existing .npmrc content
+                let npmrcContent = '';
+                try {
+                    npmrcContent = fs.readFileSync(npmrcPath, 'utf8');
+                } catch (e) {
+                    // File doesn't exist, that's okay
+                }
+
+                // Remove any existing auth entries for this registry
+                const registryAuthRegex = new RegExp(`//${registryHost}/:_auth.*\\n?`, 'g');
+                const registryTokenRegex = new RegExp(`//${registryHost}/:_authToken.*\\n?`, 'g');
+                npmrcContent = npmrcContent
+                    .replace(registryAuthRegex, '')
+                    .replace(registryTokenRegex, '');
+
+                // Add the new auth entry
+                const newAuthEntry = `//${registryHost}/:_auth=${authToken}\n`;
+                if (email) {
+                    npmrcContent += `//${registryHost}/:email=${email}\n`;
+                }
+                npmrcContent += newAuthEntry;
+
+                // Write the updated content back to .npmrc
+                fs.writeFileSync(npmrcPath, npmrcContent.trim() + '\n');
+
+                // Verify the authentication worked
+                try {
+                    const verifiedUser = execSync('npm whoami', {
+                        stdio: ['ignore', 'pipe', 'ignore'],
+                        encoding: 'utf8'
+                    }).trim();
+
+                    log(`Successfully authenticated to registry as ${verifiedUser}`, verbose);
+                    return true;
+                } catch (verifyError) {
+                    throw new Error(`Authentication failed verification: ${verifyError.message}`);
+                }
             } catch (authError) {
                 console.error(`Non-interactive authentication failed: ${authError.message}`);
 
@@ -171,7 +231,14 @@ async function authenticateVerdaccio(registry, options = {}) {
             try {
                 console.log('Please enter your registry credentials:');
                 execSync('npm login', { stdio: 'inherit' });
-                console.log('Successfully authenticated to registry');
+
+                // Verify login succeeded
+                const verifiedUser = execSync('npm whoami', {
+                    stdio: ['ignore', 'pipe', 'ignore'],
+                    encoding: 'utf8'
+                }).trim();
+
+                console.log(`Successfully authenticated to registry as ${verifiedUser}`);
                 return true;
             } catch (interactiveError) {
                 throw new Error(`Interactive authentication failed: ${interactiveError.message}`);
@@ -181,7 +248,6 @@ async function authenticateVerdaccio(registry, options = {}) {
         }
     }
 }
-
 // Helper function to get package metadata from registry
 async function getPackageMetadata(packageName, registry) {
     return new Promise((resolve, reject) => {
