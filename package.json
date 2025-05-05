@@ -1,6 +1,6 @@
 {
   "name": "migrate-node-deps",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "`migrate-node-deps` is a CLI tool that clones npm dependencies and their transitive dependencies to a local private registry (like Verdaccio).",
   "keywords": [
     "private",
@@ -37,7 +37,6 @@
     "test:coverage": "jest --coverage"
   },
   "dependencies": {
-    "npm-auth-to-token": "^1.0.0"
   },
   "devDependencies": {
     "jest": "^29.0.0"

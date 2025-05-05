@@ -67,6 +67,7 @@ function collectDependencies(packageJson, options) {
 }
 
 // Helper function for authentication
+/*
 async function authenticateVerdaccio(registry, options = {}) {
     const { username, password, email, verbose } = options;
     
@@ -102,6 +103,61 @@ async function authenticateVerdaccio(registry, options = {}) {
                 console.error(`Non-interactive authentication failed: ${authError.message}`);
 
                 // If non-interactive fails and we're in a TTY, try interactive
+                if (process.stdin.isTTY) {
+                    console.log('Falling back to interactive login...');
+                } else {
+                    throw new Error('Authentication failed and interactive login not available');
+                }
+            }
+        }
+
+        // Interactive login as fallback
+        if (process.stdin.isTTY) {
+            try {
+                console.log('Please enter your registry credentials:');
+                execSync('npm login', { stdio: 'inherit' });
+                console.log('Successfully authenticated to registry');
+                return true;
+            } catch (interactiveError) {
+                throw new Error(`Interactive authentication failed: ${interactiveError.message}`);
+            }
+        } else {
+            throw new Error('Authentication required but no credentials provided and not in interactive mode');
+        }
+    }
+}
+*/
+// Helper function for authentication
+async function authenticateVerdaccio(registry, options = {}) {
+    const { username, password, email, verbose } = options;
+
+    execSync(`npm config set registry ${registry}`, { stdio: 'ignore' });
+
+    try {
+        // Check if already logged in
+        const whoamiOutput = execSync('npm whoami', { stdio: ['ignore', 'pipe', 'ignore'], encoding: 'utf8' }).trim();
+        log(`Already authenticated as ${whoamiOutput}`, verbose);
+        return true;
+    } catch (error) {
+        log('Not authenticated, attempting login...', verbose);
+
+        if (username && password) {
+            try {
+                // Manually generate an authentication token
+                const authToken = Buffer.from(`${username}:${password}`).toString('base64');
+                const npmrcPath = `${process.env.HOME || process.env.USERPROFILE}/.npmrc`;
+
+                // Write the token to .npmrc
+                fs.appendFileSync(
+                    npmrcPath,
+                    `\n//${registry.replace(/^https?:\/\//, '')}/:_authToken=${authToken}\n`
+                );
+
+                log(`Successfully authenticated to registry as ${username}`, verbose);
+                return true;
+            } catch (authError) {
+                console.error(`Non-interactive authentication failed: ${authError.message}`);
+
                 if (process.stdin.isTTY) {
                     console.log('Falling back to interactive login...');
                 } else {
