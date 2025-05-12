@@ -6,6 +6,7 @@ const writeFile = promisify(fs.writeFile);
 const mkdtemp = promisify(fs.mkdtemp);
 const rm = promisify(fs.rm);
 const os = require('os');
+const { execSync } = require('child_process');
 
 const constants = require('./constants');
 const { parseArgs, authenticateVerdaccio, log } = require('./helpers');
@@ -49,6 +50,9 @@ async function main() {
             showHelp();
             return;
         }
+
+        // Store the original npm registry
+        const originalRegistry = execSync('npm config get registry', { encoding: 'utf8' }).trim();
 
         // Setup configuration from options or defaults
         const config = {
@@ -218,6 +222,10 @@ Migration operation completed:
             // Change back to original directory
             process.chdir(originalDir);
         } finally {
+            // Reset npm registry to the original one
+            execSync(`npm config set registry ${originalRegistry}`);
+            console.log(`Restored original npm registry: ${originalRegistry}`);
+
             // Clean up
             try {
                 await rm(tempDir, { recursive: true, force: true });
