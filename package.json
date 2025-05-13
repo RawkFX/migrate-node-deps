@@ -1,5 +1,5 @@
 {
-  "name": "migrate-node-deps",
+  "name": "@rawkfx/migrate-node-deps",
   "version": "0.0.7",
   "description": "`migrate-node-deps` is a CLI tool that clones npm dependencies and their transitive dependencies to a local private registry (like Verdaccio).",
   "keywords": [
