@@ -1,4 +1,4 @@
-name: Publish to npm
+name: Publish to npm and Github Packages
 
 on:
   push:
@@ -18,12 +18,6 @@ jobs:
         with:
           node-version: "18"
           cache: "npm"
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Configure npm
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-          echo "always-auth=true" >> ~/.npmrc
 
       - name: Install dependencies
         run: npm install
@@ -31,7 +25,26 @@ jobs:
       - name: Test package
         run: npm run test:coverage
 
+        # --- Publish to GitHub Packages ---
+      - name: Configure npm for GitHub Packages
+        run: |
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > ~/.npmrc
+          echo "always-auth=true" >> ~/.npmrc
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to GitHub Packages
+        run: npm publish --registry=https://npm.pkg.github.com/
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- Publish to npm Registry ---
+      - name: Configure npm for npmjs.org
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+          echo "always-auth=true" >> ~/.npmrc
+
       - name: Publish to npm
-        run: npm publish
+        run: npm publish --registry=https://registry.npmjs.org/ --scope=@rawkfx
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
