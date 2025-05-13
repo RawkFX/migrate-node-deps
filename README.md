@@ -7,7 +7,7 @@
 
 </div>
 
-A command-line tool to migrate npm packages and their dependencies to a local Verdaccio registry without installing
+A command-line tool to migrate npm packages and their dependencies to a local private registry (like Verdaccio) without installing
 them, avoiding dependency conflicts.
 
 ## Installation
@@ -121,7 +121,7 @@ npx migrate-node-deps --requireLogin --username admin --password secret --verbos
 To build and test the library locally, use the following commands:
 
 ```bash
-npm run test # Run tests
+npm run test:coverage # Run tests
 ```
 
 ## License
