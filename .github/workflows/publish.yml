@@ -45,6 +45,6 @@ jobs:
           echo "always-auth=true" >> ~/.npmrc
 
       - name: Publish to npm
-        run: npm publish --registry=https://registry.npmjs.org/ --scope=@rawkfx
+        run: npm publish --registry=https://registry.npmjs.org/
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
