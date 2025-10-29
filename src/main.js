@@ -11,7 +11,6 @@ const { execSync } = require('child_process');
 const constants = require('./constants');
 const { parseArgs, authenticateVerdaccio, log } = require('./helpers');
 const { collectDependencies } = require('./collectDependencies');
-const { processPackage } = require('./processPackage');
 const { publishToVerdaccio } = require('./publishToVerdaccio');
 
 // Display help information
@@ -20,12 +19,9 @@ function showHelp() {
 Usage: migrate-node-deps [options]
 
 Options:
-  --package-json <path>    Path to package.json file (default: ./package.json)
+  --lockfile <path>        Path to package-lock.json file (default: ./package-lock.json)
   --registry <url>         Private registry URL (default: http://localhost:4873)
   --source <url>           Source registry URL (default: https://registry.npmjs.org)
-  --include-dev            Include devDependencies (default: true)
-  --include-peer           Include peerDependencies (default: true)
-  --include-optional       Include optionalDependencies (default: true)
   --scope <scope>          Optional scope to limit cloning (e.g. @myorg)
   --concurrent <number>    Number of concurrent package downloads (default: 5)
   --skip-existing          Skip packages that already exist in private registry (default: true)
@@ -56,12 +52,9 @@ async function main() {
 
         // Setup configuration from options or defaults
         const config = {
-            packageJsonPath: options['package-json'] || constants.DEFAULT_PACKAGE_JSON_PATH,
+            lockfilePath: options['lockfile'] || constants.DEFAULT_LOCKFILE_PATH,
             verdaccioRegistry: options.registry || constants.DEFAULT_VERDACCIO_REGISTRY,
             sourceRegistry: options.source || constants.DEFAULT_SOURCE_REGISTRY,
-            includeDevDeps: options['include-dev'] !== 'false' && constants.DEFAULT_INCLUDE_DEV,
-            includePeerDeps: options['include-peer'] !== 'false' && constants.DEFAULT_INCLUDE_PEER,
-            includeOptionalDeps: options['include-optional'] !== 'false' && constants.DEFAULT_INCLUDE_OPTIONAL,
             scope: options.scope || null,
             concurrentLimit: options.concurrent ? parseInt(options.concurrent) : constants.DEFAULT_CONCURRENT_LIMIT,
             skipExisting: options['skip-existing'] !== 'false',
@@ -70,10 +63,9 @@ async function main() {
             username: options.username || null,
             password: options.password || null,
             email: options.email || null,
-            processedPackages: new Set()
         };
 
-        console.log('Starting direct package cloning process...');
+        console.log('Starting direct package cloning process using package-lock.json...');
         console.log(`Source registry: ${config.sourceRegistry}`);
         console.log(`Target registry: ${config.verdaccioRegistry}`);
 
@@ -88,8 +80,8 @@ async function main() {
             });
         }
 
-        // Read package.json
-        const packageJson = JSON.parse(await readFile(config.packageJsonPath, 'utf8'));
+        // Read package-lock.json
+        const lockFile = JSON.parse(await readFile(config.lockfilePath, 'utf8'));
 
         // Create temp directory for working
         const tempDir = await mkdtemp(path.join(os.tmpdir(), 'migrate-node-deps-'));
@@ -107,23 +99,19 @@ async function main() {
                 private: true
             }));
 
-            // Collect all initial dependencies to process
-            const dependencies = collectDependencies(packageJson, {
-                includeDevDeps: config.includeDevDeps,
-                includePeerDeps: config.includePeerDeps,
-                includeOptionalDeps: config.includeOptionalDeps,
+            // Collect all dependencies from lockfile
+            const dependencies = collectDependencies(lockFile, {
                 scope: config.scope
             });
 
             if (dependencies.length === 0) {
-                console.log('No dependencies found to migrate.');
+                console.log('No dependencies found in lockfile to migrate.');
                 return;
             }
 
-            console.log(`Found ${dependencies.length} direct dependencies to process`);
+            console.log(`Found ${dependencies.length} total dependencies (direct and transitive) in lockfile`);
 
             // Download and publish packages
-            const packageQueue = [...dependencies];
             const allPackages = new Set();
 
             // Add initial packages to tracking
@@ -131,38 +119,11 @@ async function main() {
                 allPackages.add(`${pkg.name}@${pkg.version}`);
             }
 
-            // Process packages and their dependencies
-            console.log('Processing packages and their dependencies...');
+            console.log(`Preparing to publish ${allPackages.size} total packages...`);
 
             let publishedCount = 0;
             let skippedCount = 0;
             let failedCount = 0;
-
-            // Process packages in batches with better error handling
-            while (packageQueue.length > 0) {
-                const batch = packageQueue.splice(0, config.concurrentLimit);
-                
-                const batchPromises = batch.map(pkg => 
-                    processPackage(pkg, packageQueue, allPackages, {
-                        sourceRegistry: config.sourceRegistry,
-                        verdaccioRegistry: config.verdaccioRegistry,
-                        includePeerDeps: config.includePeerDeps,
-                        includeOptionalDeps: config.includeOptionalDeps,
-                        processedPackages: config.processedPackages,
-                        verbose: config.verbose
-                    })
-                );
-
-                // Wait for all batch promises to complete, handling any errors
-                await Promise.all(batchPromises.map(p => p.catch(err => {
-                    console.error(`Error in batch processing: ${err.message}`);
-                    // Don't rethrow - we want to continue with other packages
-                })));
-
-                console.log(`Progress: ${allPackages.size - packageQueue.length}/${allPackages.size} packages processed`);
-            }
-
-            console.log(`Discovered ${allPackages.size} total packages (including transitive dependencies)`);
 
             // Process each package for publishing with improved error handling
             const sortedPackages = Array.from(allPackages);
@@ -172,7 +133,7 @@ async function main() {
             const publishBatchSize = Math.min(5, config.concurrentLimit);
             for (let i = 0; i < sortedPackages.length; i += publishBatchSize) {
                 const currentBatch = sortedPackages.slice(i, i + publishBatchSize);
-                const publishPromises = currentBatch.map(packageSpec => 
+                const publishPromises = currentBatch.map(packageSpec =>
                     publishToVerdaccio(packageSpec, {
                         verdaccioRegistry: config.verdaccioRegistry,
                         sourceRegistry: config.sourceRegistry,
@@ -180,21 +141,21 @@ async function main() {
                         verbose: config.verbose,
                         maxRetries: 3
                     })
-                    .then(result => {
-                        if (result === 'published') {
-                            publishedCount++;
-                        } else if (result === 'skipped') {
-                            skippedCount++;
-                        } else {
+                        .then(result => {
+                            if (result === 'published') {
+                                publishedCount++;
+                            } else if (result === 'skipped') {
+                                skippedCount++;
+                            } else {
+                                failedCount++;
+                            }
+                            return result;
+                        })
+                        .catch(error => {
+                            console.error(`Failed to publish ${packageSpec}: ${error.message}`);
                             failedCount++;
-                        }
-                        return result;
-                    })
-                    .catch(error => {
-                        console.error(`Failed to publish ${packageSpec}: ${error.message}`);
-                        failedCount++;
-                        return 'failed';
-                    })
+                            return 'failed';
+                        })
                 );
 
                 // Wait for all publish operations to complete
@@ -204,7 +165,7 @@ async function main() {
                 if (i % 20 === 0 || i + publishBatchSize >= sortedPackages.length) {
                     console.log(`Publishing progress: ${Math.min(i + publishBatchSize, sortedPackages.length)}/${sortedPackages.length}`);
                 }
-                
+
                 // Small delay between batches to prevent overwhelming the server
                 if (i + publishBatchSize < sortedPackages.length) {
                     await new Promise(resolve => setTimeout(resolve, 1000));
