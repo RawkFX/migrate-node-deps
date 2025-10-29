@@ -30,17 +30,17 @@ function parseArgs(args) {
 /**
  * Authenticate with a Verdaccio registry
  * @param {string} registry - The URL of the registry
- * (Restul funcției authenticateVerdaccio rămâne neschimbat)
+ * (The rest of the authenticateVerdaccio function remains unchanged)
  */
 async function authenticateVerdaccio(registry, options = {}) {
-    // ... (Conținutul funcției authenticateVerdaccio rămâne exact la fel ca înainte)
+    // ... (The contents of authenticateVerdaccio remain exactly the same as before)
     const {username, password, email, verbose} = options;
     const {execSync} = require('child_process');
     const fs = require('fs');
     const path = require('path');
 
     // Make sure registry URL doesn't have trailing slash
-    const normalizedRegistry = registry.replace(/\/+$/, '');
+    const normalizedRegistry = registry.replace(/\/\/+$/, '');
 
     log(`Setting npm registry to ${normalizedRegistry}`, verbose);
     execSync(`npm config set registry ${normalizedRegistry}`, {stdio: 'ignore'});
@@ -195,7 +195,7 @@ function parsePackageSpec(packageSpec) {
             const name = parts.slice(0, parts.length - 1).join('@');
             const version = parts[parts.length - 1];
 
-            // Caz special: 'name@version' vs 'name@'
+            // Special case: 'name@version' vs 'name@'
             if (name === "") { // ex: @scope/pkg@1.0.0
                 const atPos = packageSpec.indexOf('@', 1);
                 return {
@@ -219,7 +219,7 @@ function parsePackageSpec(packageSpec) {
 module.exports = {
     log,
     parseArgs,
-    authenticateVerdaccio,
+    authenticateRegistry,
     checkPackageExists,
     parsePackageSpec
 };
