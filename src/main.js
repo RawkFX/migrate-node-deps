@@ -9,9 +9,9 @@ const os = require('os');
 const { execSync } = require('child_process');
 
 const constants = require('./constants');
-const { parseArgs, authenticateVerdaccio, log } = require('./helpers');
+const { parseArgs, authenticateRegistry, log } = require('./helpers');
 const { collectDependencies } = require('./collectDependencies');
-const { publishToVerdaccio } = require('./publishToVerdaccio');
+const { publishToRegistry } = require('src/publishToRegistry');
 
 // Display help information
 function showHelp() {
@@ -50,10 +50,15 @@ async function main() {
         // Store the original npm registry
         const originalRegistry = execSync('npm config get registry', { encoding: 'utf8' }).trim();
 
+        // Determine the original working directory (where the npx command was run)
+        const executionDir = process.env.INIT_CWD || process.cwd();
+
         // Setup configuration from options or defaults
         const config = {
-            lockfilePath: options['lockfile'] || constants.DEFAULT_LOCKFILE_PATH,
-            verdaccioRegistry: options.registry || constants.DEFAULT_VERDACCIO_REGISTRY,
+            lockfilePath: options['lockfile']
+                ? path.resolve(executionDir, options['lockfile'])
+                : path.resolve(executionDir, constants.DEFAULT_LOCKFILE_PATH),
+            defaultRegistry: options.registry || constants.DEFAULT_REGISTRY,
             sourceRegistry: options.source || constants.DEFAULT_SOURCE_REGISTRY,
             scope: options.scope || null,
             concurrentLimit: options.concurrent ? parseInt(options.concurrent) : constants.DEFAULT_CONCURRENT_LIMIT,
@@ -67,12 +72,12 @@ async function main() {
 
         console.log('Starting direct package cloning process using package-lock.json...');
         console.log(`Source registry: ${config.sourceRegistry}`);
-        console.log(`Target registry: ${config.verdaccioRegistry}`);
+        console.log(`Target registry: ${config.defaultRegistry}`);
 
         // Check if authentication is required
         if (config.requireLogin) {
             console.log(`Authenticating to private registry`);
-            await authenticateVerdaccio(config.verdaccioRegistry, {
+            await authenticateRegistry(config.defaultRegistry, {
                 username: config.username,
                 password: config.password,
                 email: config.email,
@@ -134,8 +139,8 @@ async function main() {
             for (let i = 0; i < sortedPackages.length; i += publishBatchSize) {
                 const currentBatch = sortedPackages.slice(i, i + publishBatchSize);
                 const publishPromises = currentBatch.map(packageSpec =>
-                    publishToVerdaccio(packageSpec, {
-                        verdaccioRegistry: config.verdaccioRegistry,
+                    publishToRegistry(packageSpec, {
+                        defaultRegistry: config.defaultRegistry,
                         sourceRegistry: config.sourceRegistry,
                         skipExisting: config.skipExisting,
                         verbose: config.verbose,

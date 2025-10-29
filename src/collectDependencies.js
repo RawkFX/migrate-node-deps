@@ -10,14 +10,14 @@ function collectDependencies(lockFileContents, options) {
     const dependencies = new Map();
 
     if (!lockFileContents.packages) {
-        throw new Error("Formatul package-lock.json nu este suportat sau este invalid. " +
-            "Vă rugăm folosiți npm v7+ pentru a genera un lockfile v2 sau v3.");
+        throw new Error("The package-lock.json format is not supported or is invalid. " +
+            "Please use npm v7+ to generate a lockfile v2 or v3.");
     }
 
-    // Iterăm prin cheia 'packages' care conține o listă plată a tuturor dependențelor
+    // Iterate over the 'packages' key which contains a flat list of all dependencies
     for (const [path, details] of Object.entries(lockFileContents.packages)) {
 
-        // Sărim peste intrarea rădăcină (proiectul curent)
+        // Skip the root entry (the current project)
         if (path === "") {
             continue;
         }
@@ -25,27 +25,27 @@ function collectDependencies(lockFileContents, options) {
         const name = details.name;
         const version = details.version;
 
-        // Sărim peste intrările care nu au nume sau versiune (de ex. directoare simple)
+        // Skip entries that don't have a name or version (e.g. simple folders)
         if (!name || !version) {
             continue;
         }
 
-        // Sărim peste pachetele care sunt link-uri simbolice (de ex. 'npm link')
+        // Skip packages that are symbolic links (e.g. 'npm link')
         if (details.link === true) {
             continue;
         }
 
-        // Aplicăm filtrul de 'scope' dacă este specificat
+        // Apply 'scope' filter if specified
         if (scope && !name.startsWith(scope)) {
             continue;
         }
 
-        // Adăugăm în map (cheia previne duplicatele)
+        // Add to map (the key prevents duplicates)
         const packageSpec = `${name}@${version}`;
         dependencies.set(packageSpec, {name, version});
     }
 
-    // Returnăm un array cu valorile
+    // Return an array with the values
     return Array.from(dependencies.values());
 }
 

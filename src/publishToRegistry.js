@@ -9,9 +9,9 @@ const { parsePackageSpec, checkPackageExists, getPackageMetadata, resolveVersion
  * @param {Object} options Configuration options
  * @returns {Promise<string>} Result: 'published', 'skipped', or 'failed'
  */
-async function publishToVerdaccio(packageSpec, options) {
+async function publishToRegistry(packageSpec, options) {
     const { 
-        verdaccioRegistry, 
+        defaultRegistry, 
         sourceRegistry, 
         skipExisting = true, 
         verbose = false,
@@ -48,7 +48,7 @@ async function publishToVerdaccio(packageSpec, options) {
     // Check if package already exists in Verdaccio
     if (skipExisting) {
         try {
-            const exists = await checkPackageExists(packageName, packageVersion, verdaccioRegistry, {
+            const exists = await checkPackageExists(packageName, packageVersion, defaultRegistry, {
                 retries: 2,
                 timeout: 10000
             });
@@ -90,7 +90,7 @@ async function publishToVerdaccio(packageSpec, options) {
 
             // Publish to Verdaccio
             log(`Publishing ${packageSpec} to registry (attempt ${attempt}/${maxRetries})`, verbose);
-            execSync(`npm config set registry ${verdaccioRegistry}`, { stdio: 'ignore' });
+            execSync(`npm config set registry ${defaultRegistry}`, { stdio: 'ignore' });
 
             try {
                 // Determine appropriate tag based on version
@@ -108,7 +108,7 @@ async function publishToVerdaccio(packageSpec, options) {
                 log(`Using tag: ${tag} for package ${packageSpec}`, verbose);
 
                 // Using --access=public to ensure scoped packages publish correctly
-                execSync(`npm publish ${tarballFile} --registry ${verdaccioRegistry} --access=public --tag ${tag} --provenance=false`, {
+                execSync(`npm publish ${tarballFile} --registry ${defaultRegistry} --access=public --tag ${tag} --provenance=false`, {
                     stdio: 'pipe',  // Capture output instead of inheriting
                     timeout: 30000  // 30 seconds timeout
                 });
@@ -161,4 +161,4 @@ async function publishToVerdaccio(packageSpec, options) {
     return 'failed';
 }
 
-module.exports = { publishToVerdaccio };
+module.exports = { publishToRegistry };
