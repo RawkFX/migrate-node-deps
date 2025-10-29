@@ -109,8 +109,8 @@ async function publishToRegistry(packageSpec, options) {
 
                 // Using --access=public to ensure scoped packages publish correctly
                 execSync(`npm publish ${tarballFile} --registry ${defaultRegistry} --access=public --tag ${tag} --provenance=false`, {
-                    stdio: 'pipe',  // Capture output instead of inheriting
-                    timeout: 30000  // 30 seconds timeout
+                    stdio: 'pipe',
+                    timeout: 30000
                 });
 
                 // Clean up tarball file
