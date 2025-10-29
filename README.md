@@ -37,84 +37,61 @@ npx migrate-node-deps [options]
 
 ### Options
 
+<!-- Updated options to match the code (uses --lockfile and defaults from src/constants.js) -->
+
 | Option                  | Description                                                             | Default                      |
 |-------------------------|-------------------------------------------------------------------------|------------------------------|
-| `--package-json <path>` | Path to package.json file                                               | `./package.json`             |
-| `--registry <url>`      | Private registry URL                                                   | `http://localhost:4873`      |
-| `--source <url>`        | Source registry URL                                                   | `https://registry.npmjs.org` |
-| `--include-dev`         | Include devDependencies                                                 | `true`                       |
-| `--include-peer`        | Include peerDependencies                                                | `true`                       |
-| `--scope <scope>`       | Optional scope to limit cloning (e.g., @myorg)                         | `null`                       |
-| `--concurrent <number>` | Number of concurrent package downloads                                  | `5`                          |
-| `--skip-existing`       | Skip packages that already exist in private registry                   | `true`                       |
-| `--requireLogin`        | Require login to private registry before publishing                    | `false`                      |
-| `--username <username>` | Username for non-interactive login                                      | `null`                       |
-| `--password <password>` | Password for non-interactive login                                      | `null`                       |
-| `--help`                | Show help message                                                      | -                            |
+| `--lockfile <path>`     | Path to npm lockfile (package-lock.json)                                | `./package-lock.json`        |
+| `--registry <url>`      | Target private registry URL                                              | `http://localhost:4873`      |
+| `--source <url>`        | Source registry URL (where packages are downloaded from)                 | `https://registry.npmjs.org` |
+| `--scope <scope>`       | Optional scope to limit cloning (e.g., `@myorg`)                         | `null`                       |
+| `--concurrent <number>` | Number of concurrent package downloads (used as a hint)                  | `5`                          |
+| `--skip-existing`       | Skip packages that already exist in the target registry                  | `true`                       |
+| `--requireLogin`        | Require login to the private registry before publishing                  | `false`                      |
+| `--username <username>` | Username for non-interactive login                                       | `null`                       |
+| `--password <password>` | Password for non-interactive login                                       | `null`                       |
+| `--email <email>`       | Email for non-interactive login                                          | `null`                       |
+| `--verbose`             | Enable verbose logging                                                    | `false`                      |
+| `--help`                | Show help                                                                | -                            |
 
 ## Examples
 
-**Basic usage (migrate all dependencies):**
+**Basic usage (migrate using lockfile in current directory):**
 
 ```bash
 npx migrate-node-deps
 ```
 
-**Specify a custom package.json file:**
+**Specify a custom lockfile and target registry:**
 
 ```bash
-npx migrate-node-deps --package-json ./path/to/package.json
+npx migrate-node-deps --lockfile ./package-lock.json --registry http://my-verdaccio:4873
 ```
 
-**Use a different private registry:**
+**Only migrate packages under a scope:**
 
 ```bash
-npx migrate-node-deps --registry http://my-verdaccio-server:4873
+npx migrate-node-deps --lockfile ./package-lock.json --scope @myorg
 ```
 
-**Only migrate a specific scope:**
+**Require login and provide credentials non-interactively:**
 
 ```bash
-npx migrate-node-deps --scope @myorg
+npx migrate-node-deps --requireLogin --username admin --password secret --registry http://my-verdaccio:4873
 ```
 
-**Skip dev dependencies:**
+**Enable verbose logging and increase concurrency:**
 
 ```bash
-npx migrate-node-deps --include-dev false
-```
-
-**Increase concurrent downloads for faster migration:**
-
-```bash
-npx migrate-node-deps --concurrent 10
-```
-
-**Enable verbose logging:**
-
-```bash
-npx migrate-node-deps --verbose
-```
-
-**With authentication:**
-
-```bash
-npx migrate-node-deps --requireLogin --username admin --password secret
-```
-
-** My current setup:**
-
-```bash
-npx migrate-node-deps --requireLogin --username admin --password secret --verbose --concurrent 50
+npx migrate-node-deps --verbose --concurrent 10
 ```
 
 ## How It Works
 
-1. Reads the specified `package.json` file
-2. Collects all direct dependencies (and optionally devDependencies, peerDependencies, optionalDependencies)
-3. Resolves all transitive dependencies recursively
-4. Downloads packages from the source registry
-5. Publishes them to the target private registry
+1. Reads the specified `package-lock.json` (lockfile v2/v3 produced by npm v7+)
+2. Collects all direct and transitive dependencies from the lockfile
+3. Optionally filters packages by a provided `--scope`
+4. Packs packages from the source registry and publishes them to the target registry
 
 ## Development
 

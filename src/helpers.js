@@ -32,7 +32,7 @@ function parseArgs(args) {
  * @param {string} registry - The URL of the registry
  * (The rest of the authenticateVerdaccio function remains unchanged)
  */
-async function authenticateVerdaccio(registry, options = {}) {
+async function authenticateRegistry(registry, options = {}) {
     // ... (The contents of authenticateVerdaccio remain exactly the same as before)
     const {username, password, email, verbose} = options;
     const {execSync} = require('child_process');

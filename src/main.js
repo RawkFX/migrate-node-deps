@@ -11,7 +11,7 @@ const { execSync } = require('child_process');
 const constants = require('./constants');
 const { parseArgs, authenticateRegistry, log } = require('./helpers');
 const { collectDependencies } = require('./collectDependencies');
-const { publishToRegistry } = require('src/publishToRegistry');
+const { publishToRegistry } = require('./publishToRegistry');
 
 // Display help information
 function showHelp() {
