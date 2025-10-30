@@ -73,11 +73,11 @@ async function publishToRegistry(packageSpec, options) {
             execSync('npm config set strict-ssl false', { stdio: 'ignore' });
 
             // Pack the package with increased timeout
-            const packCmd = `npm pack ${packageSpec} --quiet`;
+            const packCmd = `npm pack ${packageSpec} --verbose`;
             const npmOutput = execSync(packCmd, {
                 encoding: 'utf8',
-                stdio: ['ignore', 'pipe', 'ignore'],
-                timeout: 60000 // 60 seconds timeout
+                stdio: ['ignore', 'pipe'],
+                timeout: 180000 // 60 seconds timeout
             }).trim();
 
             // Find the tarball file
@@ -102,7 +102,15 @@ async function publishToRegistry(packageSpec, options) {
                 if (version.includes('-')) {
                     // Extract prerelease identifier (alpha, beta, rc, etc.)
                     const prerelease = version.split('-')[1].split('.')[0];
-                    tag = prerelease || 'prerelease';
+
+                    // Check if the extracted tag looks like a version/SemVer range.
+                    // npm disallows tags that start with 'v' + digit or just a digit.
+                    if (/^v?\d/.test(prerelease)) {
+                        log(`Extracted prerelease '${prerelease}' is invalid for an npm tag. Defaulting to 'prerelease'.`, verbose);
+                        tag = 'prerelease';
+                    } else {
+                        tag = prerelease || 'prerelease';
+                    }
                 }
 
                 log(`Using tag: ${tag} for package ${packageSpec}`, verbose);
