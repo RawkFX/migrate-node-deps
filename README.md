@@ -37,8 +37,6 @@ npx migrate-node-deps [options]
 
 ### Options
 
-<!-- Updated options to match the code (uses --lockfile and defaults from src/constants.js) -->
-
 | Option                  | Description                                                             | Default                      |
 |-------------------------|-------------------------------------------------------------------------|------------------------------|
 | `--lockfile <path>`     | Path to npm lockfile (package-lock.json)                                | `./package-lock.json`        |
@@ -92,14 +90,6 @@ npx migrate-node-deps --verbose --concurrent 10
 2. Collects all direct and transitive dependencies from the lockfile
 3. Optionally filters packages by a provided `--scope`
 4. Packs packages from the source registry and publishes them to the target registry
-
-## Development
-
-To build and test the library locally, use the following commands:
-
-```bash
-npm run test:coverage # Run tests
-```
 
 ## License
 
