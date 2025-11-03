@@ -80,7 +80,7 @@ async function main() {
         }
 
         // Read package-lock.json
-        const lockFile = JSON.parse(readFile(config.source).toString());
+        const lockFile = JSON.parse(await readFile(config.source));
 
         // Create temp directory for working
         const tempDir = await mkdtemp(path.join(os.tmpdir(), 'migrate-node-deps-'));
