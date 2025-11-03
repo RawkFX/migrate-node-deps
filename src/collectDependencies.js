@@ -6,12 +6,11 @@
  * @returns {Array} Array of dependencies { name: string, version: string }
  */
 function collectDependencies(lockFileContents, options) {
-    const { scope } = options;
+    const {scope} = options;
     const dependencies = new Map();
 
     if (!lockFileContents || typeof lockFileContents.packages !== 'object') {
-        throw new Error("The package-lock.json format is not supported or is invalid. " +
-            "The 'packages' key is missing or invalid. Please use npm v7+ to generate a lockfile v2 or v3.");
+        throw new Error("The package-lock.json format is not supported or is invalid. " + "The 'packages' key is missing or invalid. Please use npm v7+ to generate a lockfile v2 or v3.");
     }
 
     // Iterate over the 'packages' key which contains a flat list of all dependencies
@@ -55,7 +54,7 @@ function collectDependencies(lockFileContents, options) {
         // Add to map (the key prevents duplicates)
         const packageSpec = `${name}@${version}`;
         if (!dependencies.has(packageSpec)) {
-            dependencies.set(packageSpec, { name, version });
+            dependencies.set(packageSpec, {name, version});
         }
     }
 
@@ -63,4 +62,4 @@ function collectDependencies(lockFileContents, options) {
     return Array.from(dependencies.values());
 }
 
-module.exports = { collectDependencies };
+module.exports = {collectDependencies};

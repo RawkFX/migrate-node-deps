@@ -1,17 +1,16 @@
 const fs = require('fs');
 const path = require('path');
-const { promisify } = require('util');
+const {promisify} = require('util');
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
 const mkdtemp = promisify(fs.mkdtemp);
 const rm = promisify(fs.rm);
 const os = require('os');
-const { execSync } = require('child_process');
-
+const {execSync} = require('child_process');
 const constants = require('./constants');
-const { parseArgs, authenticateRegistry, log } = require('./helpers');
-const { collectDependencies } = require('./collectDependencies');
-const { publishToRegistry } = require('./publishToRegistry');
+const {parseArgs, authenticateRegistry, log} = require('./helpers');
+const {collectDependencies} = require('./collectDependencies');
+const {publishToRegistry} = require('./publishToRegistry');
 
 // Display help information
 function showHelp() {
@@ -36,6 +35,9 @@ Options:
 
 // Main application
 async function main() {
+    // Store the original npm registry
+    const originalRegistry = execSync('npm config get registry', {encoding: 'utf8'}).trim();
+
     try {
         // Parse command line arguments
         const args = process.argv.slice(2);
@@ -47,17 +49,12 @@ async function main() {
             return;
         }
 
-        // Store the original npm registry
-        const originalRegistry = execSync('npm config get registry', { encoding: 'utf8' }).trim();
-
         // Determine the original working directory (where the npx command was run)
         const executionDir = process.env.INIT_CWD || process.cwd();
 
         // Setup configuration from options or defaults
         const config = {
-            lockfilePath: options['lockfile']
-                ? path.resolve(executionDir, options['lockfile'])
-                : path.resolve(executionDir, constants.DEFAULT_LOCKFILE_PATH),
+            lockfilePath: options['lockfile'] ? path.resolve(executionDir, options['lockfile']) : path.resolve(executionDir, constants.DEFAULT_LOCKFILE_PATH),
             defaultRegistry: options.registry || constants.DEFAULT_REGISTRY,
             sourceRegistry: options.source || constants.DEFAULT_SOURCE_REGISTRY,
             scope: options.scope || null,
@@ -78,15 +75,12 @@ async function main() {
         if (config.requireLogin) {
             console.log(`Authenticating to private registry`);
             await authenticateRegistry(config.defaultRegistry, {
-                username: config.username,
-                password: config.password,
-                email: config.email,
-                verbose: config.verbose
+                username: config.username, password: config.password, email: config.email, verbose: config.verbose
             });
         }
 
         // Read package-lock.json
-        const lockFile = JSON.parse(await readFile(config.lockfilePath, 'utf8'));
+        const lockFile = JSON.parse(readFile(config.source).toString());
 
         // Create temp directory for working
         const tempDir = await mkdtemp(path.join(os.tmpdir(), 'migrate-node-deps-'));
@@ -99,9 +93,7 @@ async function main() {
 
             // Create package.json in temp directory
             await writeFile('package.json', JSON.stringify({
-                name: 'migrate-node-deps-temp',
-                version: '1.0.0',
-                private: true
+                name: 'migrate-node-deps-temp', version: '1.0.0', private: true
             }));
 
             // Collect all dependencies from lockfile
@@ -138,30 +130,28 @@ async function main() {
             const publishBatchSize = Math.min(5, config.concurrentLimit);
             for (let i = 0; i < sortedPackages.length; i += publishBatchSize) {
                 const currentBatch = sortedPackages.slice(i, i + publishBatchSize);
-                const publishPromises = currentBatch.map(packageSpec =>
-                    publishToRegistry(packageSpec, {
-                        defaultRegistry: config.defaultRegistry,
-                        sourceRegistry: config.sourceRegistry,
-                        skipExisting: config.skipExisting,
-                        verbose: config.verbose,
-                        maxRetries: 3
-                    })
-                        .then(result => {
-                            if (result === 'published') {
-                                publishedCount++;
-                            } else if (result === 'skipped') {
-                                skippedCount++;
-                            } else {
-                                failedCount++;
-                            }
-                            return result;
-                        })
-                        .catch(error => {
-                            console.error(`Failed to publish ${packageSpec}: ${error.message}`);
+                const publishPromises = currentBatch.map(packageSpec => publishToRegistry(packageSpec, {
+                    defaultRegistry: config.defaultRegistry,
+                    sourceRegistry: config.sourceRegistry,
+                    skipExisting: config.skipExisting,
+                    verbose: config.verbose,
+                    maxRetries: 3
+                })
+                    .then(result => {
+                        if (result === 'published') {
+                            publishedCount++;
+                        } else if (result === 'skipped') {
+                            skippedCount++;
+                        } else {
                             failedCount++;
-                            return 'failed';
-                        })
-                );
+                        }
+                        return result;
+                    })
+                    .catch(error => {
+                        console.error(`Failed to publish ${packageSpec}: ${error.message}`);
+                        failedCount++;
+                        return 'failed';
+                    }));
 
                 // Wait for all publish operations to complete
                 await Promise.all(publishPromises);
@@ -178,11 +168,11 @@ async function main() {
             }
 
             console.log(`
-Migration operation completed:
-- Total packages processed: ${allPackages.size}
-- Successfully published: ${publishedCount}
-- Skipped (already exists): ${skippedCount}
-- Failed: ${failedCount}
+            Migration operation completed:
+            - Total packages processed: ${allPackages.size}
+            - Successfully published: ${publishedCount}
+            - Skipped (already exists): ${skippedCount}
+            - Failed: ${failedCount}
             `);
 
             // Change back to original directory
@@ -194,21 +184,24 @@ Migration operation completed:
 
             // Clean up
             try {
-                await rm(tempDir, { recursive: true, force: true });
+                await rm(tempDir);
                 console.log(`Cleaned up temporary directory: ${tempDir}`);
             } catch (error) {
                 if (error.code === 'EBUSY' || error.code === 'EPERM') {
                     console.log(`Temporary directory is busy, will clean up on next run: ${tempDir}`);
                     console.log(`You may need to manually delete: ${tempDir}`);
                 } else {
-                    throw error;
+                    console.error(`Failed to remove temporary directory: ${tempDir}`, error);
                 }
             }
         }
     } catch (error) {
+        execSync(`npm config set registry ${originalRegistry}`);
+        console.log(`Restored original npm registry: ${originalRegistry}`);
+
         console.error('Error:', error.message);
         throw error; // Re-throw to be caught by the CLI entry point
     }
 }
 
-module.exports = { main };
+module.exports = {main};

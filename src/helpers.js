@@ -30,6 +30,7 @@ function parseArgs(args) {
 /**
  * Authenticate with a Verdaccio registry
  * @param {string} registry - The URL of the registry
+ * @param {object} options - Options for authentication
  * (The rest of the authenticateVerdaccio function remains unchanged)
  */
 async function authenticateRegistry(registry, options = {}) {
