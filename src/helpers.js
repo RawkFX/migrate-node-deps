@@ -43,12 +43,12 @@ async function authenticateRegistry(registry, options = {}) {
     // Make sure registry URL doesn't have trailing slash
     const normalizedRegistry = registry.replace(/\/\/+$/, '');
 
-    log(`Setting npm registry to ${normalizedRegistry}`, verbose);
-    execSync(`npm config set registry ${normalizedRegistry}`, {stdio: 'ignore'});
+    log(`Setting pnpm registry to ${normalizedRegistry}`, verbose);
+    execSync(`pnpm config set registry ${normalizedRegistry}`, {stdio: 'ignore'});
 
     try {
         // Check if already logged in
-        const whoamiOutput = execSync('npm whoami', {
+        const whoamiOutput = execSync('pnpm whoami', {
             stdio: ['ignore', 'pipe', 'ignore'],
             encoding: 'utf8'
         }).trim();
@@ -84,7 +84,7 @@ async function authenticateRegistry(registry, options = {}) {
                     .replace(registryTokenRegex, '');
 
                 // Add the new auth entry
-                const newAuthEntry = `//${registryHost}/:_auth=${authToken}\n`;
+                const newAuthEntry = `//${registryHost}/:_auth=${authToken}\nalways-auth=true\n`;
                 if (email) {
                     npmrcContent += `//${registryHost}/:email=${email}\n`;
                 }
@@ -95,7 +95,7 @@ async function authenticateRegistry(registry, options = {}) {
 
                 // Verify the authentication worked
                 try {
-                    const verifiedUser = execSync('npm whoami', {
+                    const verifiedUser = execSync('pnpm whoami', {
                         stdio: ['ignore', 'pipe', 'ignore'],
                         encoding: 'utf8'
                     }).trim();
@@ -120,10 +120,10 @@ async function authenticateRegistry(registry, options = {}) {
         if (process.stdin.isTTY) {
             try {
                 console.log('Please enter your registry credentials:');
-                execSync('npm login', {stdio: 'inherit'});
+                execSync('pnpm login', {stdio: 'inherit'});
 
                 // Verify login succeeded
-                const verifiedUser = execSync('npm whoami', {
+                const verifiedUser = execSync('pnpm whoami', {
                     stdio: ['ignore', 'pipe', 'ignore'],
                     encoding: 'utf8'
                 }).trim();

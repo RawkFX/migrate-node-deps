@@ -7,7 +7,7 @@ const { parsePackageSpec, checkPackageExists, getPackageMetadata, resolveVersion
  * 
  * @param {string} packageSpec Package specification (name@version)
  * @param {Object} options Configuration options
- * @returns {Promise<string>} Result: 'published', 'skipped', or 'failed'
+ * @returns {Promise<string>} Result: 'published', 'skipped' or 'failed'
  */
 async function publishToRegistry(packageSpec, options) {
     const { 
@@ -15,7 +15,8 @@ async function publishToRegistry(packageSpec, options) {
         sourceRegistry, 
         skipExisting = true, 
         verbose = false,
-        maxRetries = 3
+        maxRetries = 3,
+        exportDir = null
     } = options;
 
     // Parse package name and version from packageSpec
@@ -69,11 +70,11 @@ async function publishToRegistry(packageSpec, options) {
             log(`Downloading ${packageSpec} (attempt ${attempt}/${maxRetries})`, verbose);
             
             // Set registry to source for downloading
-            execSync(`npm config set registry ${sourceRegistry}`, { stdio: 'ignore' });
-            execSync('npm config set strict-ssl false', { stdio: 'ignore' });
+            execSync(`pnpm config set registry ${sourceRegistry}`, { stdio: 'ignore' });
+            execSync('pnpm config set strict-ssl false', { stdio: 'ignore' });
 
-            // Pack the package with increased timeout
-            const packCmd = `npm pack ${packageSpec} --verbose`;
+            // npm pack is required for downloading remote packages as pnpm pack only packs the current directory
+            const packCmd = `npm pack ${packageSpec} --verbose --registry=${sourceRegistry}`;
             const npmOutput = execSync(packCmd, {
                 encoding: 'utf8',
                 stdio: ['ignore', 'pipe'],
@@ -90,7 +91,7 @@ async function publishToRegistry(packageSpec, options) {
 
             // Publish to Verdaccio
             log(`Publishing ${packageSpec} to registry (attempt ${attempt}/${maxRetries})`, verbose);
-            execSync(`npm config set registry ${defaultRegistry}`, { stdio: 'ignore' });
+            execSync(`pnpm config set registry ${defaultRegistry}`, { stdio: 'ignore' });
 
             try {
                 // Determine appropriate tag based on version
@@ -116,10 +117,19 @@ async function publishToRegistry(packageSpec, options) {
                 log(`Using tag: ${tag} for package ${packageSpec}`, verbose);
 
                 // Using --access=public to ensure scoped packages publish correctly
-                execSync(`npm publish ${tarballFile} --registry ${defaultRegistry} --access=public --tag ${tag} --provenance=false`, {
+                execSync(`pnpm publish ${tarballFile} --registry ${defaultRegistry} --access=public --tag ${tag} --no-provenance`, {
                     stdio: 'pipe',
                     timeout: 30000
                 });
+
+                if (exportDir) {
+                    if (!fs.existsSync(exportDir)) {
+                        fs.mkdirSync(exportDir, { recursive: true });
+                    }
+                    const destPath = require('path').join(exportDir, require('path').basename(tarballFile));
+                    fs.copyFileSync(tarballFile, destPath);
+                    log(`Exported tarball to: ${destPath}`, verbose);
+                }
 
                 // Clean up tarball file
                 if (fs.existsSync(tarballFile)) {
